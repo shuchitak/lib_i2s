@@ -6,16 +6,6 @@
 #include "i2s.h"
 #include "xassert.h"
 
-#ifdef I2S_BCLOCK_FROM_XCORE
-    #ifndef I2S_XCORE_BCLOCK_DIV
-        #error "If clocking I2S bclock from xCore clock, I2S_XCORE_BCLOCK_DIV must also be defined"
-        // Suggested value for 2 Channels @ 48 KHz:
-        // Clock speed: 491.52 MHz
-        // Div: 80
-        // 491.52 / (2*80) = 3.072 MHz
-    #endif
-#endif
-
 static void i2s_frame_init_ports(
         out buffered port:32 (&?p_dout)[num_out],
         static const size_t num_out,
@@ -25,11 +15,12 @@ static void i2s_frame_init_ports(
         out buffered port:32 p_lrclk,
         clock bclk,
         in port p_mclk,
-        unsigned mclk_bclk_ratio){
+        unsigned mclk_bclk_ratio,
+        unsigned xcore_bclock_div){
 
     set_clock_on(bclk);
 #ifdef I2S_BCLOCK_FROM_XCORE
-    configure_clock_xcore(bclk, I2S_XCORE_BCLOCK_DIV);
+    configure_clock_xcore(bclk, xcore_bclock_div);
 #else
     configure_clock_src_divide(bclk, p_mclk, mclk_bclk_ratio >> 1);
 #endif
@@ -180,7 +171,7 @@ static void i2s_frame_master0(client i2s_frame_callback_if i2s_i,
 
         //This ensures that the port time on all the ports is at 0
         i2s_frame_init_ports(p_dout, num_out, p_din, num_in, p_bclk, p_lrclk, bclk,
-            p_mclk, config.mclk_bclk_ratio);
+            p_mclk, config.mclk_bclk_ratio, config.xcore_bclock_div);
 
         i2s_restart_t restart =
           i2s_frame_ratio_n(i2s_i, p_dout, num_out, p_din,
